@@ -1,9 +1,25 @@
 const { OpenAI } = require('openai');
+const yts = require('yt-search');
 require('dotenv').config();
 
 const openai = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here'
     ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     : null;
+
+async function resolveDirectUrl(title, artist) {
+    try {
+        const query = `${artist} ${title} music video`;
+        const r = await yts(query);
+        const videos = r.videos.slice(0, 3);
+        if (videos.length > 0) {
+            return videos[0].url;
+        }
+        return `https://www.youtube.com/results?search_query=${encodeURIComponent(artist + ' ' + title)}`;
+    } catch (error) {
+        console.error('Error resolving direct URL:', error);
+        return `https://www.youtube.com/results?search_query=${encodeURIComponent(artist + ' ' + title)}`;
+    }
+}
 
 async function getRecommendations(mood) {
     if (!openai) {
@@ -11,25 +27,35 @@ async function getRecommendations(mood) {
 
         const mockCollections = {
             calm: [
-                { title: "Sunset Lover", artist: "Petit Biscuit", platform: "youtube", url: "https://youtu.be/4fQeaM62mOY" },
-                { title: "Weightless", artist: "Marconi Union", platform: "youtube", url: "https://youtu.be/UfcAVejslrU" },
-                { title: "Clair de Lune", artist: "Claude Debussy", platform: "spotify", url: "https://open.spotify.com/track/6kf7uS68vAg97Y9989YpS1" }
+                { title: "Sunset Lover", artist: "Petit Biscuit" },
+                { title: "Weightless", artist: "Marconi Union" },
+                { title: "Clair de Lune", artist: "Claude Debussy" }
             ],
             happy: [
-                { title: "Happy", artist: "Pharrell Williams", platform: "youtube", url: "https://youtu.be/ZbZSe6N_BXs" },
-                { title: "Walking on Sunshine", artist: "Katrina & The Waves", platform: "spotify", url: "https://open.spotify.com/track/05wIrUM66m3Xy59vY6YNoI" },
-                { title: "Don't Stop Me Now", artist: "Queen", platform: "youtube", url: "https://youtu.be/HgzGwKwLmgM" }
+                { title: "Happy", artist: "Pharrell Williams" },
+                { title: "Walking on Sunshine", artist: "Katrina & The Waves" },
+                { title: "Don't Stop Me Now", artist: "Queen" }
             ],
             energetic: [
-                { title: "Eye of the Tiger", artist: "Survivor", platform: "youtube", url: "https://youtu.be/btPJPFnesV4" },
-                { title: "Stronger", artist: "Kanye West", platform: "spotify", url: "https://open.spotify.com/track/4fzps6q61Y7608f7O8b7Tf" },
-                { title: "Level Up", artist: "Ciara", platform: "youtube", url: "https://youtu.be/Dh-ULbQmmF8" }
+                { title: "Eye of the Tiger", artist: "Survivor" },
+                { title: "Stronger", artist: "Kanye West" },
+                { title: "Level Up", artist: "Ciara" }
             ]
         };
 
-        const result = mockCollections[mood.toLowerCase()] || mockCollections.calm;
-        return result.slice(0, 5);
+        const result = (mockCollections[mood.toLowerCase()] || mockCollections.calm).slice(0, 5);
+
+        const recommendations = [];
+        for (const song of result) {
+            recommendations.push({
+                ...song,
+                platform: 'youtube',
+                url: await resolveDirectUrl(song.title, song.artist)
+            });
+        }
+        return recommendations;
     }
+
     const prompt = `
         You are a music recommendation system.
         Based on the mood "${mood}", recommend 5 real and well-known songs.
@@ -38,16 +64,12 @@ async function getRecommendations(mood) {
         Each object must have:
         - title: The song title
         - artist: The artist name
-        - platform: Either "youtube" or "spotify"
-        - url: A direct playable URL (e.g., https://youtu.be/... or https://open.spotify.com/track/...)
 
         Example format:
         [
           {
             "title": "Song Name",
-            "artist": "Artist Name",
-            "platform": "youtube",
-            "url": "https://youtu.be/..."
+            "artist": "Artist Name"
           }
         ]
     `;
@@ -62,15 +84,23 @@ async function getRecommendations(mood) {
         const content = response.choices[0].message.content;
         const data = JSON.parse(content);
 
-        // Handle cases where the AI might wrap the array in an object
-        if (data.recommendations) return data.recommendations;
-        if (Array.isArray(data)) return data;
-        if (typeof data === 'object') {
+        let songs = [];
+        if (data.recommendations) songs = data.recommendations;
+        else if (Array.isArray(data)) songs = data;
+        else if (typeof data === 'object') {
             const firstKey = Object.keys(data)[0];
-            if (Array.isArray(data[firstKey])) return data[firstKey];
+            if (Array.isArray(data[firstKey])) songs = data[firstKey];
         }
 
-        return data;
+        const recommendations = [];
+        for (const song of (Array.isArray(songs) ? songs : [])) {
+            recommendations.push({
+                ...song,
+                platform: 'youtube',
+                url: await resolveDirectUrl(song.title, song.artist)
+            });
+        }
+        return recommendations;
     } catch (error) {
         console.error('Error fetching recommendations:', error);
         throw error;
