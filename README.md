@@ -1,4 +1,4 @@
-# MoodMusic - AI recommendation System
+# PulsePlay — Music that Matches Your Mood
 
 A full-stack Mood-Based Music Recommendation System with Node.js backend and web frontend, designed for ESP32 IoT control.
 
