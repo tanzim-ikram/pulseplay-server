@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoodMusic - AI Recommendations</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>PulsePlay</h1>
+        <div id="mood-container">
+            <span id="mood-display" class="mood-badge">Waiting for mood...</span>
+        </div>
+        
+        <div id="song-list" class="song-list">
+            <div class="empty-state">
+                The rhythm is waiting for your device to pick a mood.
+            </div>
+        </div>
+
+        <footer>
+            Controlled by ESP32 IoT Module
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
