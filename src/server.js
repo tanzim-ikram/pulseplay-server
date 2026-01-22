@@ -35,8 +35,15 @@ fastify.post('/api/recommend', async (request, reply) => {
         };
         return { status: 'ok' };
     } catch (error) {
-        fastify.log.error(error);
-        return reply.status(500).send({ error: 'Failed to generate recommendations' });
+        // Add more context to the error logging
+        fastify.log.error('Failed to generate recommendations:', error);
+        if (error.response) {
+            fastify.log.error('OpenAI API Error Data:', error.response.data);
+        }
+        return reply.status(500).send({
+            error: 'Failed to generate recommendations',
+            details: error.message
+        });
     }
 });
 

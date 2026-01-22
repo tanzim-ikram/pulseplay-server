@@ -59,19 +59,20 @@ async function getRecommendations(mood) {
     const prompt = `
         You are a music recommendation system.
         Based on the mood "${mood}", recommend 5 real and well-known songs.
-        Return ONLY a JSON array of objects.
-        No explanation, no extra text.
-        Each object must have:
+        Return a JSON object with a "recommendations" key containing an array of song objects.
+        Each song object must have:
         - title: The song title
         - artist: The artist name
 
         Example format:
-        [
-          {
-            "title": "Song Name",
-            "artist": "Artist Name"
-          }
-        ]
+        {
+          "recommendations": [
+            {
+              "title": "Song Name",
+              "artist": "Artist Name"
+            }
+          ]
+        }
     `;
 
     try {
@@ -82,27 +83,51 @@ async function getRecommendations(mood) {
         });
 
         const content = response.choices[0].message.content;
-        const data = JSON.parse(content);
+        if (!content) {
+            throw new Error('AI returned an empty response');
+        }
 
+        const data = JSON.parse(content);
         let songs = [];
-        if (data.recommendations) songs = data.recommendations;
-        else if (Array.isArray(data)) songs = data;
-        else if (typeof data === 'object') {
+
+        if (data.recommendations && Array.isArray(data.recommendations)) {
+            songs = data.recommendations;
+        } else if (Array.isArray(data)) {
+            songs = data;
+        } else {
+            // Fallback for other possible structures
             const firstKey = Object.keys(data)[0];
-            if (Array.isArray(data[firstKey])) songs = data[firstKey];
+            if (firstKey && Array.isArray(data[firstKey])) {
+                songs = data[firstKey];
+            }
+        }
+
+        if (songs.length === 0) {
+            console.log('No songs found in AI response, data:', data);
         }
 
         const recommendations = [];
-        for (const song of (Array.isArray(songs) ? songs : [])) {
-            recommendations.push({
-                ...song,
-                platform: 'youtube',
-                url: await resolveDirectUrl(song.title, song.artist)
-            });
+        for (const song of songs) {
+            if (song && typeof song === 'object' && song.title && song.artist) {
+                recommendations.push({
+                    title: song.title,
+                    artist: song.artist,
+                    platform: 'youtube',
+                    url: await resolveDirectUrl(song.title, song.artist)
+                });
+            }
         }
+
+        if (recommendations.length === 0) {
+            throw new Error('No valid recommendations could be generated from AI response');
+        }
+
         return recommendations;
     } catch (error) {
-        console.error('Error fetching recommendations:', error);
+        console.error('Error in getRecommendations:', error);
+        if (error.response) {
+            console.error('OpenAI API Error Data:', error.response.data);
+        }
         throw error;
     }
 }
